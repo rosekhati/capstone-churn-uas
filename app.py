@@ -2,15 +2,13 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-st.set_page_config(page_title="Prediksi Churn UAS", layout="wide")
+st.set_page_config(page_title="Prediksi Churn", layout="wide")
 st.title("📊 Prediksi Churn Pelanggan")
+st.write("UAS Bengkel Koding Data Science - Rosekhati - A11.2023.15496")
 
-# 1. Load Model + Scaler
 model = joblib.load('model_churn_terbaik.pkl')
 scaler = joblib.load('scaler.pkl')
 
-# 2. WAJIB ISI INI DENGAN KOLOM KAMU
-# Jalankan: print(X.columns.tolist()) di cell atas, lalu copy paste hasilnya ke sini
 FEATURE_COLUMNS = [
     'age', 'is_premium_user', 'total_visits', 'avg_session_time', 'pages_per_session', 
     'email_open_rate', 'email_click_rate', 'total_spent', 'avg_order_value', 'discount_used', 
