@@ -13,7 +13,7 @@ scaler = joblib.load('scaler.pkl')
 # 2. WAJIB ISI INI DENGAN KOLOM KAMU
 # Jalankan: print(X.columns.tolist()) di cell atas, lalu copy paste hasilnya ke sini
 FEATURE_COLUMNS = [
-    'allent', 'is_premium_user', 'total_visits', 'avg_session_time', 'pages_per_session', 
+    'age', 'is_premium_user', 'total_visits', 'avg_session_time', 'pages_per_session', 
     'email_open_rate', 'email_click_rate', 'total_spent', 'avg_order_value', 'discount_used', 
     'support_tickets', 'refund_requested', 'delivery_delay_days', 'satisfaction_score', 
     'nps_score', 'marketing_spend_per_user', 'lifetime_value', 'last_3_month_purchase_freq', 
