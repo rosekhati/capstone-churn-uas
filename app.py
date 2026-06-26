@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 
 st.set_page_config(page_title="Prediksi Churn UAS", layout="wide")
-st.title("📊 Prediksi Churn Pelanggan UAS")
+st.title("📊 Prediksi Churn Pelanggan")
 
 # 1. Load Model + Scaler
 model = joblib.load('model_churn_terbaik.pkl')
