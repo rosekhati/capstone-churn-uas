@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import matplotlib.pyplot as plt
 
+st.header("📊 Fitur Paling Berpengaruh Terhadap Churn")
 st.set_page_config(page_title="Prediksi Churn UAS", layout="wide")
 st.title("📊 Prediksi Churn Pelanggan UAS")
 
@@ -44,3 +46,12 @@ if st.button('Prediksi Sekarang'):
     else:
         st.success(f'✅ Hasil: PELANGGAN TIDAK CHURN = {prediction}')
         st.info("Alasan: Pelanggan aktif, puas, dan tidak ada komplain.")
+
+importances = model.feature_importances_
+feature_importance_df = pd.DataFrame({'feature': FEATURE_COLUMNS, 'importance': importances})
+feature_importance_df = feature_importance_df.sort_values('importance', ascending=False).head(10)
+
+fig, ax = plt.subplots()
+ax.barh(feature_importance_df['feature'], feature_importance_df['importance'])
+ax.invert_yaxis()
+st.pyplot(fig)
