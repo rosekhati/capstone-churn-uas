@@ -38,11 +38,9 @@ if st.button('Prediksi Sekarang'):
     input_scaled = scaler.transform(input_df)
     prediction = model.predict(input_scaled)[0]
 
-    # === KODE POINT 2 DIMULAI DARI SINI ===
     if prediction == 1:
         st.error(f'🚨 Hasil: PELANGGAN CHURN = {prediction}')
         st.warning("Alasan: Skor kepuasan rendah, banyak tiket komplain, dan minta refund. Disarankan tim retention segera menghubungi.")
     else:
         st.success(f'✅ Hasil: PELANGGAN TIDAK CHURN = {prediction}')
         st.info("Alasan: Pelanggan aktif, puas, dan tidak ada komplain.")
-    # === SAMPAI SINI ===
