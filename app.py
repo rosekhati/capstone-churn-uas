@@ -4,45 +4,27 @@ import joblib
 import numpy as np
 
 # ============================
-# Konfigurasi Halaman
+# 1. Konfigurasi & CSS
 # ============================
-st.set_page_config(
-    page_title="Prediksi Churn Pelanggan",
-    page_icon="🔮",
-    layout="wide"
-)
-
-# ============================
-# CSS
-# ============================
+st.set_page_config(page_title="Prediksi Churn Pelanggan", page_icon="🔮", layout="wide")
 st.markdown("""
 <style>
 [data-testid="stSidebar"]{ background-color:#EEF2F7; }
-.stButton>button{
-    background-color:#4F46E5; color:white; border-radius:8px;
-    width:220px; height:45px; font-size:16px; font-weight:bold;
-}
-h1{ color:#1F2937; }
+.stButton>button{ background-color:#4F46E5; color:white; border-radius:8px; width:100%; height:45px; font-size:16px; font-weight:bold;}
 </style>
 """, unsafe_allow_html=True)
 
 # ============================
-# Load Model, Scaler, dan Default Data
+# 2. Load Model + Scaler Saja
 # ============================
-@st.cache_resource # biar nggak load ulang tiap klik
-def load_artifacts():
-    model = joblib.load("model_churn_terbaik.pkl")
-    scaler = joblib.load("scaler.pkl")
-    # PENTING: Simpan juga 1 baris data training saat fit scaler
-    # untuk jadi baseline. Kalau nggak ada, pakai median 0.
-    try:
-        baseline_df = pd.read_csv("baseline_churn_input.csv") # Simpan ini dari notebook
-    except:
-        baseline_df = pd.DataFrame(0, index=[0], columns=FEATURE_COLUMNS) # Fallback
-    return model, scaler, baseline_df
+@st.cache_resource
+def load_model():
+    return joblib.load("model_churn_terbaik.pkl"), joblib.load("scaler.pkl")
+
+model, scaler = load_model()
 
 # ============================
-# Feature Model - Harus urutannya sama persis saat training
+# 3. Feature Model - WAJIB SAMA PERSIS URUTANNYA DENGAN SAAT TRAINING
 # ============================
 FEATURE_COLUMNS = [
     'age', 'is_premium_user', 'total_visits', 'avg_session_time',
@@ -73,37 +55,37 @@ FEATURE_COLUMNS = [
     'payment_method_UPI'
 ]
 
-model, scaler, baseline_df = load_artifacts()
+# ============================
+# 4. Bikin "Nilai Default Median" Manual
+# -> Ini nggantiin file.csv. Isi 0 semua = aman buat scaler
+# ============================
+default_values = {col: 0.0 for col in FEATURE_COLUMNS}
 
 # ==================================================
-# SIDEBAR - Input yang ngaruh ke Churn
+# 5. SIDEBAR INPUT
 # ==================================================
-st.sidebar.title("Input Fitur Utama Pelanggan")
-
-age = st.sidebar.number_input("Usia", 18, 80, 30)
-premium = st.sidebar.selectbox("Premium User", ["Ya","Tidak"])
-total_spent = st.sidebar.number_input("Total Pengeluaran ($)", 0.0, 10000.0, 150.0)
-lifetime = st.sidebar.number_input("Lifetime Value ($)", 0.0, 50000.0, 500.0)
-ticket = st.sidebar.number_input("Jumlah Komplain", 0, 50, 1)
-satisfaction = st.sidebar.slider("Skor Kepuasan 1-5", 1, 5, 4)
-
-# Tambah 2 input yang paling ngaruh ke churn biar bisa ke-trigger
+st.sidebar.title("Input Fitur Pelanggan")
+age = st.sidebar.number_input("Usia", 18, 80, 35)
+premium = st.sidebar.selectbox("Premium User", ["Tidak","Ya"]) # Dibalik biar default 0
+total_spent = st.sidebar.number_input("Total Pengeluaran ($)", 0.0, 10000.0, 0.0)
+lifetime = st.sidebar.number_input("Lifetime Value ($)", 0.0, 50000.0, 0.0)
+ticket = st.sidebar.number_input("Jumlah Komplain", 0, 50, 0)
+satisfaction = st.sidebar.slider("Skor Kepuasan 1-5", 1, 5, 5) # Default 5 = aman
 delay = st.sidebar.number_input("Hari Delay Pengiriman", 0, 30, 0)
 refund = st.sidebar.selectbox("Pernah Refund?", ["Tidak", "Ya"])
 
+st.sidebar.markdown("---")
+demo_churn = st.sidebar.checkbox("Tes Pelanggan Berisiko Churn") # Checkbox lebih aman
+
 # ==================================================
-# HALAMAN UTAMA
+# 6. BANGUN DATAFRAME INPUT
 # ==================================================
 st.title("🔮 Aplikasi Prediksi Churn Pelanggan")
-st.write("Aplikasi ini memprediksi kemungkinan pelanggan melakukan **Churn**.")
 
-# ==================================================
-# INPUT DATA
-# ==================================================
-# 1. Mulai dari baseline, bukan 0 semua. Ini kuncinya.
-input_data = baseline_df.iloc[0].to_dict()
+# Mulai dari default 0
+input_data = default_values.copy()
 
-# 2. Override dengan input user
+# Isi yang dari user
 input_data["age"] = age
 input_data["total_spent"] = total_spent
 input_data["lifetime_value"] = lifetime
@@ -113,57 +95,46 @@ input_data["delivery_delay_days"] = delay
 input_data["refund_requested"] = 1 if refund == "Ya" else 0
 input_data["is_premium_user"] = 1 if premium == "Ya" else 0
 
-# 3. Contoh bikin pelanggan "berpotensi churn": komplain tinggi + puas rendah
-st.sidebar.markdown("---")
-if st.sidebar.button("Coba Mode Pelanggan Berisiko"):
-    st.sidebar.session_state['demo'] = True
-
-if st.sidebar.session_state.get('demo', False):
-    input_data["support_tickets"] = 5
+# Override kalau mode demo diaktifin -> Ini pasti churn
+if demo_churn:
+    input_data["support_tickets"] = 10
     input_data["satisfaction_score"] = 1
-    input_data["delivery_delay_days"] = 7
+    input_data["delivery_delay_days"] = 15
     input_data["refund_requested"] = 1
+    input_data["total_visits"] = 2
+    input_data["lifetime_value"] = 50.0
 
-# Pastikan urutan kolom sama persis
-input_df = pd.DataFrame([input_data])[FEATURE_COLUMNS]
+# KUNCI: Bikin DataFrame dan paksa urutan kolomnya sama persis
+input_df = pd.DataFrame([input_data], columns=FEATURE_COLUMNS)
 
 # ==================================================
-# PREDIKSI
+# 7. PREDIKSI
 # ==================================================
 if st.button("Prediksi Status Churn"):
 
-    input_scaled = scaler.transform(input_df)
-    prediction = model.predict(input_scaled)[0]
-    probability = model.predict_proba(input_scaled)[0]
+    try:
+        input_scaled = scaler.transform(input_df)
+        prob_churn = model.predict_proba(input_scaled)[0][1] # Ambil prob kelas 1 = churn
+        prediction = 1 if prob_churn >= 0.5 else 0 # Threshold 0.5
 
-    st.divider()
-    st.subheader("Hasil Prediksi")
+        st.divider()
+        st.subheader("Hasil Prediksi")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if prediction == 1:
-            st.error(f"🚨 Pelanggan Diprediksi CHURN")
+        col1, col2 = st.columns(2)
+        with col1:
+            if prediction == 1:
+                st.error(f"🚨 Pelanggan Diprediksi CHURN")
+            else:
+                st.success(f"✅ Pelanggan Diprediksi TIDAK CHURN")
+
+        with col2:
+            st.metric(label="Probabilitas Churn", value=f"{prob_churn*100:.2f}%")
+
+        if prob_churn >= 0.5:
+            st.warning("### Rekomendasi: Hubungi, beri promo retensi, tindak lanjuti komplain.")
         else:
-            st.success(f"✅ Pelanggan Diprediksi TIDAK CHURN")
+            st.info("### Rekomendasi: Pertahankan layanan & berikan loyalty.")
 
-    with col2:
-        st.metric(
-            "Probabilitas Churn",
-            f"{probability[1]*100:.2f}%"
-        )
-
-    st.divider()
-    # Threshold bisa kamu turunin kalau mau lebih sensitif
-    if probability[1] > 0.4: # Default model 0.5. Turunin ke 0.4 biar lebih sering warning
-        st.warning("""
-### Rekomendasi Aksi Cepat
-- Hubungi pelanggan segera.
-- Berikan voucher/promo retensi.
-- Eskalasi komplain ke CS senior.
-        """)
-    else:
-        st.info("""
-### Rekomendasi
-- Pertahankan kualitas layanan.
-- Berikan program loyalitas.
-        """)
+    except Exception as e:
+        st.error(f"Terjadi Error: {e}")
+        st.info("Cek: 1. Apakah `FEATURE_COLUMNS` urutannya 100% sama dengan saat training? 2. Apakah `scaler.pkl` dan `model.pkl` satu paket?")
