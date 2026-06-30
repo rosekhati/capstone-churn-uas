@@ -153,103 +153,51 @@ else:
 
 if st.button("Prediksi Status Churn"):
 
-    # Membuat DataFrame
-    input_df = pd.DataFrame([input_data], columns=FEATURE_COLUMNS)
+    input_df = pd.DataFrame([input_data])
 
-    # Scaling
     input_scaled = scaler.transform(input_df)
 
-    # Prediksi
     prediction = model.predict(input_scaled)[0]
 
-    # Probabilitas
     probability = model.predict_proba(input_scaled)[0]
 
-    prob_not_churn = probability[0] * 100
-    prob_churn = probability[1] * 100
-
-    # Threshold keputusan
-    threshold = 40
-
     st.divider()
 
-    st.subheader("Hasil Prediksi:")
-
-    # ===============================
-    # OUTPUT
-    # ===============================
-
-    if prob_churn >= threshold:
-
-        st.error(
-            f"⚠️ Pelanggan Berpotensi CHURN (Berhenti Berlangganan) "
-            f"dengan probabilitas {prob_churn:.2f}%"
-        )
-
-    else:
-
-        st.success(
-            f"✅ Pelanggan Diprediksi TIDAK CHURN "
-            f"dengan probabilitas bertahan {prob_not_churn:.2f}%"
-        )
-
-    st.caption(
-        f"Probabilitas churn mentah dari model: {prob_churn:.2f}% | "
-        f"Threshold keputusan: {threshold}%"
-    )
-
-    st.divider()
-
-    # ===============================
-    # PROGRESS BAR
-    # ===============================
-
-    st.subheader("Visualisasi Probabilitas")
-
-    st.progress(min(prob_churn/100, 1.0))
+    st.subheader("Hasil Prediksi")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.metric(
-            "Probabilitas Churn",
-            f"{prob_churn:.2f}%"
-        )
+
+        if prediction == 1:
+
+            st.error("🚨 Pelanggan Diprediksi CHURN")
+
+        else:
+
+            st.success("✅ Pelanggan Diprediksi TIDAK CHURN")
 
     with col2:
-        st.metric(
-            "Probabilitas Bertahan",
-            f"{prob_not_churn:.2f}%"
-        )
+
+        if prediction == 1:
+
+            st.metric(
+                "Probabilitas Churn",
+                f"{probability[1]*100:.2f}%"
+            )
+
+        else:
+
+            st.metric(
+                "Probabilitas Bertahan",
+                f"{probability[0]*100:.2f}%"
+            )
 
     st.divider()
 
-    # ===============================
-    # REKOMENDASI
-    # ===============================
-
-    if prob_churn >= threshold:
+    if prediction == 1:
 
         st.warning("""
-### 🚨 Rekomendasi
-
-- Hubungi pelanggan secepatnya.
-- Berikan promo atau voucher khusus.
-- Tingkatkan kualitas pelayanan.
-- Follow-up seluruh komplain pelanggan.
-- Berikan program loyalitas.
-""")
-
-    else:
-
-        st.info("""
-### ✅ Rekomendasi
-
-- Pertahankan kualitas pelayanan.
-- Berikan reward loyalitas.
-- Tingkatkan engagement pelanggan.
-- Lakukan monitoring berkala.
-""")
 ### Rekomendasi
 
 - Hubungi pelanggan.
