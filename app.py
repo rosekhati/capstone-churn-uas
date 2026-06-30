@@ -56,10 +56,9 @@ FEATURE_COLUMNS = [
 ]
 
 # ============================
-# 4. KUNCI: Nilai Median Normal. Ini baseline "pelanggan aman"
-# -> Ambil dari df.describe() kamu. Jangan 0 semua.
+# 4. Nilai Median Normal Dataset - Sebagai Default
 # ============================
-BASELINE_VALUES = {
+DEFAULT_VALUES = {
     'age': 35, 'is_premium_user': 0, 'total_visits': 12, 'avg_session_time': 7.5,
     'pages_per_session': 3.8, 'email_open_rate': 0.22, 'email_click_rate': 0.04,
     'total_spent': 320.0, 'avg_order_value': 52.0, 'discount_used': 1,
@@ -79,39 +78,49 @@ BASELINE_VALUES = {
 }
 
 # ==================================================
-# 5. SIDEBAR INPUT - HANYA 6 FITUR PALING NGARUH KE CHURN
+# 5. SIDEBAR INPUT - 8 FITUR PALING NGARUH KE CHURN BISA DIISI MANUAL
 # ==================================================
 st.sidebar.title("Input Fitur Pelanggan")
-st.sidebar.caption("Isi 6 fitur ini. Sisanya pakai nilai normal.")
+st.sidebar.caption("Ubah nilai di bawah ini. Hasil CHURN murni dari input kamu.")
 
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    ticket = st.number_input("Jumlah Komplain", 0, 50, 0, help=">3 = risiko tinggi")
-    delay = st.number_input("Hari Delay Kirim", 0, 30, 2, help=">7 = risiko tinggi")
-    lifetime = st.number_input("Lifetime Value ($)", 0.0, 50000.0, 950.0, step=50.0, help="<200 = risiko tinggi")
-with col2:
-    satisfaction = st.slider("Skor Kepuasan 1-5", 1, 5, 4, help="<=2 = risiko tinggi")
-    refund = st.selectbox("Pernah Refund?", ["Tidak", "Ya"])
-    visits = st.number_input("Total Kunjungan App", 0, 200, 12, help="<5 = risiko tinggi")
+with st.sidebar.expander("Data Demografi & Transaksi", expanded=True):
+    age = st.number_input("Usia", 18, 80, DEFAULT_VALUES['age'])
+    premium = st.selectbox("Premium User", ["Tidak","Ya"], index=DEFAULT_VALUES['is_premium_user'])
+    total_spent = st.number_input("Total Pengeluaran ($)", 0.0, 10000.0, DEFAULT_VALUES['total_spent'])
+    lifetime = st.number_input("Lifetime Value ($)", 0.0, 50000.0, DEFAULT_VALUES['lifetime_value'])
+
+with st.sidebar.expander("Data Risiko Churn", expanded=True):
+    ticket = st.number_input("Jumlah Komplain", 0, 50, DEFAULT_VALUES['support_tickets'], help=">3 risiko naik")
+    satisfaction = st.slider("Skor Kepuasan 1-5", 1, 5, DEFAULT_VALUES['satisfaction_score'], help="<=2 risiko tinggi")
+    nps = st.slider("NPS Score 0-10", 0, 10, DEFAULT_VALUES['nps_score'], help="<=3 risiko tinggi")
+    delay = st.number_input("Hari Delay Pengiriman", 0, 30, DEFAULT_VALUES['delivery_delay_days'], help=">7 risiko tinggi")
+    refund = st.selectbox("Pernah Refund?", ["Tidak", "Ya"], index=DEFAULT_VALUES['refund_requested'])
+    visits = st.number_input("Total Kunjungan App", 0, 200, DEFAULT_VALUES['total_visits'], help="<5 risiko tinggi")
+
+# HAPUS: checkbox demo_churn sudah dihapus
 
 # ==================================================
-# 6. BANGUN DATAFRAME INPUT DARI INPUT USER
+# 6. BANGUN DATAFRAME INPUT
 # ==================================================
 st.title("🔮 Aplikasi Prediksi Churn Pelanggan")
-st.write("Hasil `CHURN` murni dari 6 fitur di atas. Coba ubah nilainya.")
+st.write("Model akan memprediksi CHURN berdasarkan 8 fitur yang kamu input di sidebar.")
 
-# 1. Mulai dari baseline normal
-input_data = BASELINE_VALUES.copy()
+# Mulai dari median
+input_data = DEFAULT_VALUES.copy()
 
-# 2. Override HANYA dengan input user
-input_data["support_tickets"] = ticket
-input_data["delivery_delay_days"] = delay
+# Isi semua dari user
+input_data["age"] = age
+input_data["is_premium_user"] = 1 if premium == "Ya" else 0
+input_data["total_spent"] = total_spent
 input_data["lifetime_value"] = lifetime
+input_data["support_tickets"] = ticket
 input_data["satisfaction_score"] = satisfaction
+input_data["nps_score"] = nps
+input_data["delivery_delay_days"] = delay
 input_data["refund_requested"] = 1 if refund == "Ya" else 0
 input_data["total_visits"] = visits
 
-# 3. Paksa urutan kolom sama persis
+# Paksa urutan kolom sama persis
 input_df = pd.DataFrame([input_data], columns=FEATURE_COLUMNS)
 
 # ==================================================
@@ -121,25 +130,27 @@ if st.button("Prediksi Status Churn"):
 
     input_scaled = scaler.transform(input_df)
     prob_churn = model.predict_proba(input_scaled)[0][1]
-    prediction = 1 if prob_churn >= 0.5 else 0 # Balik ke 0.5 biar adil
+    prediction = 1 if prob_churn >= 0.5 else 0 # Threshold normal 0.5
 
     st.divider()
     st.subheader("Hasil Prediksi")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns([2,1,2])
     with col1:
         if prediction == 1:
             st.error(f"🚨 Pelanggan Diprediksi CHURN")
         else:
             st.success(f"✅ Pelanggan Diprediksi TIDAK CHURN")
-
     with col2:
-        st.metric(label="Probabilitas Churn", value=f"{prob_churn*100:.2f}%")
+        st.metric(label="Probabilitas", value=f"{prob_churn*100:.1f}%")
+    with col3:
         st.progress(prob_churn)
 
-    st.caption(f"Input kamu: Komplain={ticket}, Kepuasan={satisfaction}, Delay={delay} hari, Refund={'Ya' if refund=='Ya' else 'Tidak'}, LTV=${lifetime}, Visits={visits}")
+    st.write("**Ringkasan Input Risiko:**")
+    st.write(f"- Komplain: `{ticket}` | Kepuasan: `{satisfaction}/5` | NPS: `{nps}/10`")
+    st.write(f"- Delay: `{delay} hari` | Refund: `{refund}` | Kunjungan: `{visits}x` | LTV: `${lifetime}`")
 
     if prob_churn >= 0.5:
-        st.warning("### Rekomendasi: Segera lakukan retensi. Pelanggan berisiko tinggi cabut.")
+        st.warning("### Rekomendasi Aksi Retensi: Segera hubungi, beri promo, tindak lanjuti komplain.")
     else:
-        st.info("### Rekomendasi: Pertahankan. Pelanggan masih aman.")
+        st.info("### Rekomendasi: Pertahankan layanan & tingkatkan engagement.")
