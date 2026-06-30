@@ -24,7 +24,7 @@ def load_model():
 model, scaler = load_model()
 
 # ============================
-# 3. Feature Model - WAJIB SAMA PERSIS URUTANNYA DENGAN SAAT TRAINING
+# 3. Feature Model - WAJIB SAMA PERSIS URUTANNYA
 # ============================
 FEATURE_COLUMNS = [
     'age', 'is_premium_user', 'total_visits', 'avg_session_time',
@@ -56,10 +56,10 @@ FEATURE_COLUMNS = [
 ]
 
 # ============================
-# 4. KUNCI 1: Ganti 0 jadi Median/Nilai Normal Dataset
-# -> Ambil nilai tengah dari df.describe() kamu. Ini contoh umum dataset churn
+# 4. KUNCI: Nilai Median Normal. Ini baseline "pelanggan aman"
+# -> Ambil dari df.describe() kamu. Jangan 0 semua.
 # ============================
-DEFAULT_VALUES = {
+BASELINE_VALUES = {
     'age': 35, 'is_premium_user': 0, 'total_visits': 12, 'avg_session_time': 7.5,
     'pages_per_session': 3.8, 'email_open_rate': 0.22, 'email_click_rate': 0.04,
     'total_spent': 320.0, 'avg_order_value': 52.0, 'discount_used': 1,
@@ -68,10 +68,10 @@ DEFAULT_VALUES = {
     'marketing_spend_per_user': 10.0, 'lifetime_value': 950.0,
     'last_3_month_purchase_freq': 2,
     'gender_Male': 0, 'gender_Other': 0,
-    'country_Germany': 0, 'country_India': 1, 'country_UK': 0, 'country_USA': 0, # 1 negara aja yang 1
-    'city_Delhi': 1, 'city_Dhaka': 0, 'city_Hamburg': 0, 'city_London': 0, 'city_Mumbai': 0, 'city_New York': 0, # 1 kota aja yang 1
+    'country_Germany': 0, 'country_India': 1, 'country_UK': 0, 'country_USA': 0,
+    'city_Delhi': 1, 'city_Dhaka': 0, 'city_Hamburg': 0, 'city_London': 0, 'city_Mumbai': 0, 'city_New York': 0,
     'acquisition_channel_Facebook Ads': 0, 'acquisition_channel_Google Ads': 0,
-    'acquisition_channel_Organic': 1, 'acquisition_channel_Referral': 0, # 1 channel aja yang 1
+    'acquisition_channel_Organic': 1, 'acquisition_channel_Referral': 0,
     'device_type_Mobile': 1, 'device_type_Tablet': 0,
     'subscription_type_Monthly': 1,
     'coupon_code_REF10': 0, 'coupon_code_SALE15': 0,
@@ -79,51 +79,39 @@ DEFAULT_VALUES = {
 }
 
 # ==================================================
-# 5. SIDEBAR INPUT - Fokus ke fitur yang paling ngaruh ke churn
+# 5. SIDEBAR INPUT - HANYA 6 FITUR PALING NGARUH KE CHURN
 # ==================================================
 st.sidebar.title("Input Fitur Pelanggan")
+st.sidebar.caption("Isi 6 fitur ini. Sisanya pakai nilai normal.")
 
-age = st.sidebar.number_input("Usia", 18, 80, DEFAULT_VALUES['age'])
-premium = st.sidebar.selectbox("Premium User", ["Tidak","Ya"], index=DEFAULT_VALUES['is_premium_user'])
-total_spent = st.sidebar.number_input("Total Pengeluaran ($)", 0.0, 10000.0, DEFAULT_VALUES['total_spent'])
-lifetime = st.sidebar.number_input("Lifetime Value ($)", 0.0, 50000.0, DEFAULT_VALUES['lifetime_value'])
-ticket = st.sidebar.number_input("Jumlah Komplain", 0, 50, DEFAULT_VALUES['support_tickets'])
-satisfaction = st.sidebar.slider("Skor Kepuasan 1-5", 1, 5, DEFAULT_VALUES['satisfaction_score'])
-delay = st.sidebar.number_input("Hari Delay Pengiriman", 0, 30, DEFAULT_VALUES['delivery_delay_days'])
-refund = st.sidebar.selectbox("Pernah Refund?", ["Tidak", "Ya"], index=DEFAULT_VALUES['refund_requested'])
-
-st.sidebar.markdown("---")
-demo_churn = st.sidebar.checkbox("🔥 Aktifkan Mode Pelanggan Berisiko Churn")
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    ticket = st.number_input("Jumlah Komplain", 0, 50, 0, help=">3 = risiko tinggi")
+    delay = st.number_input("Hari Delay Kirim", 0, 30, 2, help=">7 = risiko tinggi")
+    lifetime = st.number_input("Lifetime Value ($)", 0.0, 50000.0, 950.0, step=50.0, help="<200 = risiko tinggi")
+with col2:
+    satisfaction = st.slider("Skor Kepuasan 1-5", 1, 5, 4, help="<=2 = risiko tinggi")
+    refund = st.selectbox("Pernah Refund?", ["Tidak", "Ya"])
+    visits = st.number_input("Total Kunjungan App", 0, 200, 12, help="<5 = risiko tinggi")
 
 # ==================================================
-# 6. BANGUN DATAFRAME INPUT
+# 6. BANGUN DATAFRAME INPUT DARI INPUT USER
 # ==================================================
 st.title("🔮 Aplikasi Prediksi Churn Pelanggan")
+st.write("Hasil `CHURN` murni dari 6 fitur di atas. Coba ubah nilainya.")
 
-# Mulai dari median, bukan 0
-input_data = DEFAULT_VALUES.copy()
+# 1. Mulai dari baseline normal
+input_data = BASELINE_VALUES.copy()
 
-# Isi yang dari user
-input_data["age"] = age
-input_data["total_spent"] = total_spent
-input_data["lifetime_value"] = lifetime
+# 2. Override HANYA dengan input user
 input_data["support_tickets"] = ticket
-input_data["satisfaction_score"] = satisfaction
 input_data["delivery_delay_days"] = delay
+input_data["lifetime_value"] = lifetime
+input_data["satisfaction_score"] = satisfaction
 input_data["refund_requested"] = 1 if refund == "Ya" else 0
-input_data["is_premium_user"] = 1 if premium == "Ya" else 0
+input_data["total_visits"] = visits
 
-# KUNCI 2: MODE CHURN -> Isi nilai ekstrem yang pasti memicu churn
-if demo_churn:
-    input_data["support_tickets"] = 8 # Komplain banyak
-    input_data["satisfaction_score"] = 1 # Puas paling rendah
-    input_data["delivery_delay_days"] = 14 # Delay parah
-    input_data["refund_requested"] = 1 # Pernah refund
-    input_data["nps_score"] = 2 # NPS jelek
-    input_data["lifetime_value"] = 60.0 # LTV rendah = mau cabut
-    input_data["total_visits"] = 3 # Jarang buka app
-
-# KUNCI: Bikin DataFrame dan paksa urutan kolomnya sama persis
+# 3. Paksa urutan kolom sama persis
 input_df = pd.DataFrame([input_data], columns=FEATURE_COLUMNS)
 
 # ==================================================
@@ -132,10 +120,8 @@ input_df = pd.DataFrame([input_data], columns=FEATURE_COLUMNS)
 if st.button("Prediksi Status Churn"):
 
     input_scaled = scaler.transform(input_df)
-    prob_churn = model.predict_proba(input_scaled)[0][1] # Prob kelas 1 = churn
-
-    # KUNCI 3: Turunin threshold jadi 0.4 biar lebih gampang ke-detect churn
-    prediction = 1 if prob_churn >= 0.4 else 0
+    prob_churn = model.predict_proba(input_scaled)[0][1]
+    prediction = 1 if prob_churn >= 0.5 else 0 # Balik ke 0.5 biar adil
 
     st.divider()
     st.subheader("Hasil Prediksi")
@@ -149,14 +135,11 @@ if st.button("Prediksi Status Churn"):
 
     with col2:
         st.metric(label="Probabilitas Churn", value=f"{prob_churn*100:.2f}%")
-        st.progress(prob_churn) # Biar keliatan seberapa besar risikonya
+        st.progress(prob_churn)
 
-    if prob_churn >= 0.4:
-        st.warning("""
-        ### Rekomendasi Aksi Retensi
-        - Hubungi pelanggan dalam 24 jam
-        - Tawarkan diskon khusus 10-15%
-        - Tindak lanjuti semua komplain yang terbuka
-        """)
+    st.caption(f"Input kamu: Komplain={ticket}, Kepuasan={satisfaction}, Delay={delay} hari, Refund={'Ya' if refund=='Ya' else 'Tidak'}, LTV=${lifetime}, Visits={visits}")
+
+    if prob_churn >= 0.5:
+        st.warning("### Rekomendasi: Segera lakukan retensi. Pelanggan berisiko tinggi cabut.")
     else:
-        st.info("### Rekomendasi: Pertahankan kualitas layanan & ajak ke program loyalitas.")
+        st.info("### Rekomendasi: Pertahankan. Pelanggan masih aman.")
